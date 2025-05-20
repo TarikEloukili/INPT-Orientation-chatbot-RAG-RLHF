@@ -1,5 +1,4 @@
-# Training script to learn from feedback
-# feedback_trainer.py
+
 
 import sqlite3
 import json

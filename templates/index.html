@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Florida Vegetable Growing Assistant</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        .chat-container {
+            height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+        .user-message {
+            background-color: #e9ecef;
+            border-radius: 15px 15px 0 15px;
+        }
+        .bot-message {
+            background-color: #d1e7dd;
+            border-radius: 15px 15px 15px 0;
+        }
+        .feedback-buttons {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 8px;
+        }
+        .feedback-button {
+            padding: 4px 8px;
+            margin-left: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .like-button {
+            background-color: #d1e7dd;
+        }
+        .dislike-button {
+            background-color: #f8d7da;
+        }
+        .feedback-given {
+            color: #6c757d;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl font-bold text-green-700">Florida Vegetable Growing Assistant</h1>
+            <p class="text-gray-600">Ask questions about growing vegetables in Florida</p>
+        </header>
+
+        <div class="bg-white rounded-lg shadow p-4">
+            <div id="chat-container" class="chat-container mb-4 p-2">
+                <div class="bot-message p-3 mb-4 max-w-3xl">
+                    <p>Hello! I'm your Florida vegetable growing assistant. How can I help you today?</p>
+                </div>
+            </div>
+
+            <div class="flex">
+                <input type="text" id="user-input" class="flex-grow border rounded-l p-2" placeholder="Ask something about growing vegetables in Florida...">
+                <button id="send-button" class="bg-green-600 text-white px-4 py-2 rounded-r">Send</button>
+            </div>
+        </div>
+
+        <div class="mt-4 text-center">
+            <p class="text-gray-600 text-sm">Powered by RAG with local LLM</p>
+            <div id="feedback-stats" class="mt-2 text-sm">
+                <span id="likes-count">0</span> likes, <span id="dislikes-count">0</span> dislikes
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatContainer = document.getElementById('chat-container');
+            const userInput = document.getElementById('user-input');
+            const sendButton = document.getElementById('send-button');
+            
+            // Load feedback stats on page load
+            loadFeedbackStats();
+
+            // Function to add a message to the chat
+            function addMessage(message, isUser) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = isUser ? 'user-message p-3 mb-4 ml-auto max-w-3xl' : 'bot-message p-3 mb-4 max-w-3xl';
+                messageDiv.innerHTML = `<p>${message}</p>`;
+                
+                if (!isUser) {
+                    const lastQuery = chatContainer.querySelector('.user-message:last-of-type p').textContent;
+                    // Add feedback buttons for bot messages
+                    const feedbackDiv = document.createElement('div');
+                    feedbackDiv.className = 'feedback-buttons';
+                    feedbackDiv.innerHTML = `
+                        <span class="feedback-button like-button" data-feedback="like">👍</span>
+                        <span class="feedback-button dislike-button" data-feedback="dislike">👎</span>
+                    `;
+                    
+                    // Store the query and response for feedback
+                    messageDiv.dataset.query = lastQuery;
+                    messageDiv.dataset.response = message;
+                    
+                    messageDiv.appendChild(feedbackDiv);
+                    
+                    // Add event listeners for feedback buttons
+                    feedbackDiv.querySelectorAll('.feedback-button').forEach(button => {
+                        button.addEventListener('click', function() {
+                            const feedback = this.dataset.feedback;
+                            const qaId = Date.now().toString(); // Simple ID generation
+                            sendFeedback(qaId, lastQuery, message, feedback);
+                            
+                            // Update UI to show feedback was given
+                            feedbackDiv.innerHTML = '<span class="feedback-given">Thank you for your feedback!</span>';
+                            
+                            // Reload feedback stats
+                            loadFeedbackStats();
+                        });
+                    });
+                }
+                
+                chatContainer.appendChild(messageDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+
+            // Function to send a query to the server
+            async function sendQuery(query) {
+                try {
+                    const response = await fetch('/ask', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ query }),
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    
+                    const data = await response.json();
+                    addMessage(data.response, false);
+                } catch (error) {
+                    console.error('Error:', error);
+                    addMessage('Sorry, there was an error processing your request.', false);
+                }
+            }
+
+            // Function to send feedback to the server
+            async function sendFeedback(qaId, query, response, feedback) {
+                try {
+                    const feedbackResponse = await fetch('/feedback', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            qa_id: qaId,
+                            query,
+                            response,
+                            feedback
+                        }),
+                    });
+                    
+                    if (!feedbackResponse.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                } catch (error) {
+                    console.error('Error sending feedback:', error);
+                }
+            }
+
+            // Function to load feedback stats
+            async function loadFeedbackStats() {
+                try {
+                    const response = await fetch('/feedback/stats');
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    
+                    const data = await response.json();
+                    document.getElementById('likes-count').textContent = data.likes;
+                    document.getElementById('dislikes-count').textContent = data.dislikes;
+                } catch (error) {
+                    console.error('Error loading feedback stats:', error);
+                }
+            }
+
+            // Handle send button click
+            sendButton.addEventListener('click', function() {
+                const query = userInput.value.trim();
+                if (query) {
+                    addMessage(query, true);
+                    userInput.value = '';
+                    sendQuery(query);
+                }
+            });
+
+            // Handle Enter key press
+            userInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendButton.click();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

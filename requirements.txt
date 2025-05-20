@@ -14,6 +14,12 @@ pypdf>=4.0.1
 # Optional: for enhanced vector search
 sentence-transformers>=2.2.2
 
-# Optional: for development
-pytest>=7.4.0
-black>=23.7.0
+
+
+
+# Web application
+flask
+
+# Database
+sqlite3
+

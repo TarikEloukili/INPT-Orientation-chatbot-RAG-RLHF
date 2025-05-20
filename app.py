@@ -20,7 +20,7 @@ DATA_PATH = r"data"
 CHROMA_PATH = r"chroma_db"
 
 chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
-collection = chroma_client.get_or_create_collection(name="growing_vegetables")
+collection = chroma_client.get_or_create_collection(name="Orientation")
 
 # Configuration for Ollama
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://localhost:11434/api/chat")
@@ -110,7 +110,7 @@ def ask():
     user_query = request.json.get('query', '')
     
     if not user_query:
-        return jsonify({'response': 'Please ask a question about growing vegetables.'})
+        return jsonify({'response': 'Please ask a question about INPT branches.'})
     
     # Query the RAG system
     results = collection.query(
@@ -119,14 +119,12 @@ def ask():
     )
     
     system_prompt = """
-    You are a helpful assistant. You answer questions about growing vegetables in Florida. 
-    But you only answer based on knowledge I'm providing you. You don't use your internal 
-    knowledge and you don't make things up.
+    You are a helpful assistant. You answer questions about the INPT (Institut National des Postes et Télécommunications) and its three branches: Cloud, Data, and Cybersecurity.
+    You only answer based on the knowledge I provide you. You do not use your internal knowledge and you do not make things up.
     If you don't know the answer, just say: I don't know
-    
-    IMPORTANT: You must provide ONLY the direct answer to the question without showing your reasoning or thought process. 
+
+    IMPORTANT: You must provide ONLY the direct answer to the question without showing your reasoning or thought process.
     Keep your response concise and to the point. Do not start with phrases like "Based on the information provided" or "According to the data".
-    --------------------
     The data:
     """ + str(results['documents']) + """
     """
